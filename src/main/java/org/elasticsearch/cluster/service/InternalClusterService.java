@@ -83,7 +83,7 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
 
     private volatile ClusterState clusterState;
 
-    private final ClusterBlocks.Builder initialBlocks = ClusterBlocks.builder().addGlobalBlock(Discovery.NO_MASTER_BLOCK);
+    private final ClusterBlocks.Builder initialBlocks;
 
     private volatile ScheduledFuture reconnectToNodes;
 
@@ -103,6 +103,8 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
         this.reconnectInterval = componentSettings.getAsTime("reconnect_interval", TimeValue.timeValueSeconds(10));
 
         localNodeMasterListeners = new LocalNodeMasterListeners(threadPool);
+
+        initialBlocks = ClusterBlocks.builder().addGlobalBlock(discoveryService.getNoMasterBlock());
     }
 
     public NodeSettingsService settingsService() {
@@ -304,6 +306,11 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
             }
             logger.debug("processing [{}]: execute", source);
             ClusterState previousClusterState = clusterState;
+            if (!previousClusterState.nodes().localNodeMaster() && !(updateTask instanceof ClusterStateNonMasterUpdateTask)) {
+                logger.debug("failing [{}]: local node is no longer master", source);
+                updateTask.onFailure(source, new NoLongerMasterException("source: " + source));
+                return;
+            }
             ClusterState newClusterState;
             try {
                 newClusterState = updateTask.execute(previousClusterState);
@@ -359,20 +366,6 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
                                 ackedUpdateTask.onAckTimeout();
                             }
                         }
-                    }
-                } else {
-                    if (previousClusterState.blocks().hasGlobalBlock(Discovery.NO_MASTER_BLOCK) && !newClusterState.blocks().hasGlobalBlock(Discovery.NO_MASTER_BLOCK)) {
-                        // force an update, its a fresh update from the master as we transition from a start of not having a master to having one
-                        // have a fresh instances of routing and metadata to remove the chance that version might be the same
-                        Builder builder = ClusterState.builder(newClusterState);
-                        builder.routingTable(RoutingTable.builder(newClusterState.routingTable()));
-                        builder.metaData(MetaData.builder(newClusterState.metaData()));
-                        newClusterState = builder.build();
-                        logger.debug("got first state from fresh master [{}]", newClusterState.nodes().masterNodeId());
-                    } else if (newClusterState.version() < previousClusterState.version()) {
-                        // we got a cluster state with older version, when we are *not* the master, let it in since it might be valid
-                        // we check on version where applicable, like at ZenDiscovery#handleNewClusterStateFromMaster
-                        logger.debug("got smaller cluster state when not master [" + newClusterState.version() + "<" + previousClusterState.version() + "] from source [" + source + "]");
                     }
                 }
 
@@ -701,5 +694,4 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
             }
         }
     }
-
 }

@@ -103,7 +103,7 @@ public class GatewayService extends AbstractLifecycleComponent<GatewayService> i
             ClusterState clusterState = clusterService.state();
             DiscoveryNodes nodes = clusterState.nodes();
             if (clusterState.nodes().localNodeMaster() && clusterState.blocks().hasGlobalBlock(STATE_NOT_RECOVERED_BLOCK)) {
-                if (clusterState.blocks().hasGlobalBlock(Discovery.NO_MASTER_BLOCK)) {
+                if (clusterState.blocks().hasGlobalBlock(discoveryService.getNoMasterBlock())) {
                     logger.debug("not recovering from gateway, no master elected yet");
                 } else if (recoverAfterNodes != -1 && (nodes.masterAndDataNodes().size()) < recoverAfterNodes) {
                     logger.debug("not recovering from gateway, nodes_size (data+master) [" + nodes.masterAndDataNodes().size() + "] < recover_after_nodes [" + recoverAfterNodes + "]");
@@ -154,16 +154,10 @@ public class GatewayService extends AbstractLifecycleComponent<GatewayService> i
         if (lifecycle.stoppedOrClosed()) {
             return;
         }
-        if (event.state().blocks().hasGlobalBlock(Discovery.NO_MASTER_BLOCK)) {
-            // we need to clear those flags, since we might need to recover again in case we disconnect
-            // from the cluster and then reconnect
-            recovered.set(false);
-            scheduledRecovery.set(false);
-        }
         if (event.localNodeMaster() && event.state().blocks().hasGlobalBlock(STATE_NOT_RECOVERED_BLOCK)) {
             ClusterState clusterState = event.state();
             DiscoveryNodes nodes = clusterState.nodes();
-            if (event.state().blocks().hasGlobalBlock(Discovery.NO_MASTER_BLOCK)) {
+            if (event.state().blocks().hasGlobalBlock(discoveryService.getNoMasterBlock())) {
                 logger.debug("not recovering from gateway, no master elected yet");
             } else if (recoverAfterNodes != -1 && (nodes.masterAndDataNodes().size()) < recoverAfterNodes) {
                 logger.debug("not recovering from gateway, nodes_size (data+master) [" + nodes.masterAndDataNodes().size() + "] < recover_after_nodes [" + recoverAfterNodes + "]");
