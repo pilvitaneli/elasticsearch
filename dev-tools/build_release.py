@@ -543,7 +543,7 @@ if __name__ == '__main__':
   print('  Running with maven command: [%s] ' % (MVN))
   if build:
     release_version = find_release_version(src_branch)
-    ensure_no_open_tickets(release_version)
+    #ensure_no_open_tickets(release_version)
     if not dry_run:
       smoke_test_version = release_version
     head_hash = get_head_hash()
