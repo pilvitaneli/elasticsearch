@@ -1190,6 +1190,7 @@
                                 <!-- end exclude for FilteredQuery -->
                                 <!-- start exclude for Channels utility class -->
                                 <exclude>org/elasticsearch/common/io/Channels.class</exclude>
+                                <exclude>org/elasticsearch/common/io/FileChannelInputStream.class</exclude>
                                 <!-- end exclude for Channels -->
                                 <!-- start exclude for Lucene utility class -->
                                 <exclude>org/elasticsearch/common/lucene/Lucene$LenientParser.class</exclude>
